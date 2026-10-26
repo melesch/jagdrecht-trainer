@@ -1,5 +1,5 @@
 // Service Worker: alles vorab speichern, offline aus dem Cache liefern, online nach Updates schauen.
-const VERSION='f81f24a91a';
+const VERSION='bbd39b4816';
 const CACHE='jagdrecht-'+VERSION;
 const FILES=['./','./index.html','./manifest.json','./icon-192.png','./icon-512.png','./apple-touch-icon.png'];
 self.addEventListener('install',e=>{ e.waitUntil(caches.open(CACHE).then(c=>c.addAll(FILES)).then(()=>self.skipWaiting())); });
