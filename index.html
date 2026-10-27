@@ -101,6 +101,27 @@ select{width:auto}
 .bk .frage{margin:16px 0;padding:12px 14px;border:1px solid var(--signal);border-radius:10px;background:var(--panel)}
 .bk .frage .eyebrow{color:var(--signal)}
 .bk .frage details{margin-top:8px}.bk .frage summary{cursor:pointer;color:var(--accent);font-weight:600}
+/* Vorlesen: markierter Absatz + Player-Leiste über der unteren Tab-Leiste */
+.bk .speaking{background:color-mix(in srgb,var(--signal) 13%,var(--panel));outline:2px solid color-mix(in srgb,var(--signal) 45%,transparent);outline-offset:3px;border-radius:6px}
+.bk.listening [data-bi]{cursor:pointer}
+.tts{position:fixed;left:max(10px,env(safe-area-inset-left,0px));right:max(10px,env(safe-area-inset-right,0px));bottom:calc(12px + env(safe-area-inset-bottom,0px));max-width:740px;margin:0 auto;z-index:15;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:0 6px 24px rgb(0 0 0 / .18);padding:8px 10px}
+.tts[hidden]{display:none}
+.tts-r{display:flex;align-items:center;gap:6px}
+.tts-t{flex:1;min-width:0;text-align:left;padding:2px 4px;line-height:1.2}
+.tts-t b{display:block;font-family:var(--display);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tts-t span{font-size:.78rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.tts-c button{width:38px;height:38px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto}
+.tts-c button svg{width:20px;height:20px}
+.tts-c .pp{background:var(--accent);color:var(--accent-fg);width:44px;height:44px}
+.tts-c .rate{font-family:var(--display);font-weight:700;font-size:.85rem;width:auto;min-width:38px;padding:0 4px;border-radius:8px;font-variant-numeric:tabular-nums}
+.tts-ctl{justify-content:center;gap:clamp(6px,4vw,22px);margin-top:2px}
+.tts .bar{height:3px;margin-top:6px}
+.tts-s{border-top:1px solid var(--line);margin-top:8px;padding-top:8px;display:flex;flex-direction:column;gap:8px;font-size:.92rem}
+.tts-s[hidden]{display:none}
+.tts-s select{width:100%}
+.tts-s label{display:flex;gap:8px;align-items:center}
+body.tts-on main{padding-bottom:170px}
+body.tts-on .toast{bottom:calc(160px + env(safe-area-inset-bottom,0px))}
 .crumbs{font-size:.9rem;color:var(--muted);display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
 .crumbs button{color:var(--accent);text-decoration:underline;padding:0}
 mark{background:#ffe08a;color:#1f2a22;border-radius:2px}
@@ -744,7 +765,7 @@ V.buch=function(el,arg){
   const read=BUCH.filter(c=>S.book[c.key]).length;
   const last=S.lastChap!==null&&BUCH.find(c=>c.key===S.lastChap);
   el.innerHTML=`<div class="stack"><h2>Das Kärntner Jagdgesetz in Wort und Bild</h2>
-  <p class="muted" style="margin:0">Helmut Arbeiter, 3. Auflage – Lehrbuch der Kärntner Jägerschaft. Text aus den Buchfotos (S. 13–86), per Texterkennung übernommen; einzelne Erkennungsfehler sind möglich. ${read}/${BUCH.length} Kapitel gelesen.</p>
+  <p class="muted" style="margin:0">Helmut Arbeiter, 3. Auflage – Lehrbuch der Kärntner Jägerschaft. Text aus den Buchfotos (S. 13–86), per Texterkennung übernommen; einzelne Erkennungsfehler sind möglich. Jedes Kapitel kann vorgelesen werden (▶ Vorlesen, funktioniert auch offline). ${read}/${BUCH.length} Kapitel gelesen.</p>
   ${last?`<button class="btn primary" id="cont">Weiterlesen: ${esc(last.nr?last.nr+'. ':'')}${esc(last.title)}</button>`:''}
   <input type="search" id="bs" placeholder="Im Buch suchen (z. B. Abwurfstangen, Pachtzins)" value="${esc(bq)}"><div id="bres"></div>
   <div id="blist">${parts.map(pt=>`<h3 style="margin:10px 0 6px">${pt.part?esc(pt.part+'. '+pt.title):'Einleitung'}</h3><div class="list">${pt.chaps.map(c=>`<button class="item" data-c="${c.i}"><span class="id">${c.nr?c.nr+'.':'–'}</span><span>${esc(c.title)}<br><span class="muted" style="font-size:.85rem">ab S. ${c.pg} · ${c.blocks.filter(b=>b.k==='q').length?c.blocks.filter(b=>b.k==='q').length+' Prüfungsfrage'+(c.blocks.filter(b=>b.k==='q').length>1?'n':''):'ohne Prüfungsfrage'}</span></span><span class="learned">${S.book[c.key]?'✓':''}</span></button>`).join('')}</div>`).join('')}</div></div>`;
@@ -769,22 +790,175 @@ function showChap(el,i){
   const c=BUCH[i]; if(!c) return render();
   S.lastChap=c.key; save();
   const prev=BUCH[i-1], next=BUCH[i+1]; let lastPg=0;
-  const body=c.blocks.map(b=>{
+  const body=c.blocks.map((b,bi)=>{
     const pg=b.pg!==lastPg?`<span class="pg">S. ${b.pg}</span>`:''; lastPg=b.pg;
-    if(b.k==='h') return `<h3>${pg}${esc(b.t)}</h3>`;
-    if(b.k==='law') return `<div class="law">${pg}${linkRefs(b.t,'kjg')}</div>`;
-    if(b.k==='li') return `<div class="li">${pg}${linkRefs(b.t,'kjg')}</div>`;
-    if(b.k==='q'){ const a=bookAnswer(b); return `<div class="frage">${pg}<div class="eyebrow">Prüfungsfrage</div><p style="margin:6px 0 0">${linkRefs(b.t,'kjg')}</p>${a?`<details><summary>Lösung des Autors anzeigen</summary><p style="margin:6px 0 0">${linkRefs(a.b,'kjg')}</p></details>`:''}</div>`; }
-    return `<p>${pg}${linkRefs(b.t,'kjg')}</p>`;
+    if(b.k==='h') return `<h3 data-bi="${bi}">${pg}${esc(b.t)}</h3>`;
+    if(b.k==='law') return `<div class="law" data-bi="${bi}">${pg}${linkRefs(b.t,'kjg')}</div>`;
+    if(b.k==='li') return `<div class="li" data-bi="${bi}">${pg}${linkRefs(b.t,'kjg')}</div>`;
+    if(b.k==='q'){ const a=bookAnswer(b); return `<div class="frage" data-bi="${bi}">${pg}<div class="eyebrow">Prüfungsfrage</div><p style="margin:6px 0 0">${linkRefs(b.t,'kjg')}</p>${a?`<details><summary>Lösung des Autors anzeigen</summary><p style="margin:6px 0 0">${linkRefs(a.b,'kjg')}</p></details>`:''}</div>`; }
+    return `<p data-bi="${bi}">${pg}${linkRefs(b.t,'kjg')}</p>`;
   }).join('');
+  const resume=S.ttsPos&&S.ttsPos.key===c.key&&S.ttsPos.bi>0?c.blocks[S.ttsPos.bi]:null;
   el.innerHTML=`<div class="crumbs"><button data-back>Buch</button><span>›</span><span>${c.part?esc(c.part+'. '+c.partTitle):'Einleitung'}</span></div>
-  <article class="para card bk"><div class="eyebrow">Arbeiter · ab S. ${c.pg}</div><h2>${c.nr?c.nr+'. ':''}${esc(c.title)}</h2>${body}
+  <article class="para card bk" data-chap="${i}"><div class="eyebrow">Arbeiter · ab S. ${c.pg}</div><h2 data-bi="-1">${c.nr?c.nr+'. ':''}${esc(c.title)}</h2>
+  <div class="row" style="margin:10px 0 4px"><button class="btn small primary" id="say">▶ Vorlesen</button>${resume?`<button class="btn small" id="sayon">▶ Weiterhören ab S. ${resume.pg}</button>`:''}</div>${body}
   <div class="row" style="margin-top:16px;border-top:1px solid var(--line);padding-top:12px"><button class="btn ${S.book[c.key]?'':'primary'}" id="read">${S.book[c.key]?'✓ Als gelesen markiert':'Als gelesen markieren'}</button></div></article>
   <div class="row" style="margin-top:12px;justify-content:space-between">${prev?`<button class="btn small" data-c="${prev.i}">‹ ${esc(prev.title)}</button>`:'<span></span>'}${next?`<button class="btn small" data-c="${next.i}">${esc(next.title)} ›</button>`:''}</div>`;
   el.querySelector('[data-back]').onclick=()=>render();
   el.querySelectorAll('[data-c]').forEach(b=>b.onclick=()=>render({chap:+b.dataset.c}));
   el.querySelectorAll('[data-x]').forEach(b=>b.onclick=()=>nav('gesetz',{doc:'kjg',para:b.dataset.x}));
   el.querySelector('#read').onclick=()=>{ if(S.book[c.key]) delete S.book[c.key]; else S.book[c.key]=1; save(); render({chap:i}); };
+  el.querySelector('#say').onclick=()=>ttsStart(i,-1);
+  const so=el.querySelector('#sayon'); if(so) so.onclick=()=>ttsStart(i,S.ttsPos.bi);
+  // Während der Player offen ist: Tippen auf einen Absatz liest ab dort vor.
+  el.querySelector('article').addEventListener('click',e=>{
+    if(TTS.c!==i||e.target.closest('.xref,summary,button,a')) return;
+    const b=e.target.closest('[data-bi]'); if(b) ttsStart(i,+b.dataset.bi);
+  });
+  ttsMark();
+}
+
+// ---------- Vorlesen (Web Speech API: Systemstimmen des Geräts, funktioniert offline) ----------
+const synth=window.speechSynthesis;
+S.tts=Object.assign({rate:1,voice:'',sol:true,next:true},S.tts||{});
+const RATES=[0.8,0.9,1,1.1,1.25,1.5];
+const TTS={c:null,items:[],pos:0,on:false,tok:0,lock:null,bar:null};
+// Abkürzungen ausschreiben, damit die Stimme sie richtig ausspricht.
+const SAY=[[/§§\s?/g,'Paragraphen '],[/§\s?/g,'Paragraph '],[/(Paragraph \d+[a-z]?)\/(\d+)/g,'$1 Absatz $2'],[/\bAbs\.\s?/g,'Absatz '],[/\bZ\.?\s?(?=\d)/g,'Ziffer '],[/\blit\.\s?/g,'litera '],[/\bff\.?(?=[\s),;.]|$)/g,'folgende'],
+  [/\bK-?JG\b/g,'Jagdgesetz'],[/\bK-?NSG\b/g,'Naturschutzgesetz'],[/\bBH\b/g,'Bezirkshauptmannschaft'],[/\bBJM\b/g,'Bezirksjägermeister'],[/\bBVB\b/g,'Bezirksverwaltungsbehörde'],[/\bKJ\b/g,'Kärntner Jägerschaft'],[/\bABGB\b/g,'A B G B'],
+  [/\bz\.\s?B\./g,'zum Beispiel'],[/\bu\.\s?a\./g,'unter anderem'],[/\bd\.\s?h\./g,'das heißt'],[/\bbzw\./g,'beziehungsweise'],[/\busw\./g,'und so weiter'],[/\bca\./g,'circa'],[/\bvgl\./g,'vergleiche'],
+  [/\bgem\./g,'gemäß'],[/\blt\./g,'laut'],[/\bNr\./g,'Nummer'],[/\bLGBl\./g,'Landesgesetzblatt'],[/(\d)\s?ha\b/g,'$1 Hektar'],[/\b([a-z])\.\)/g,'$1)']];
+function sayChunks(t){ // in kurze Stücke teilen (lange Äußerungen brechen in manchen Browsern ab)
+  t=SAY.reduce((s,[r,v])=>s.replace(r,v),t).replace(/\s+/g,' ').trim();
+  const parts=(t.match(/[^.!?;:]+(?:[.!?;:]+["“”')]*|$)\s*/g)||[t]).flatMap(p=>p.length>260?p.match(/[^,]+,?\s*/g):[p]);
+  const out=[]; let cur='';
+  parts.forEach(p=>{ if(cur&&(cur+p).length>220){out.push(cur.trim());cur='';} cur+=p; });
+  if(cur.trim()) out.push(cur.trim());
+  return out;
+}
+function ttsBuild(i){
+  const c=BUCH[i], items=[{bi:-1,t:`${c.nr?'Kapitel '+c.nr+'. ':''}${c.title}.`}];
+  c.blocks.forEach((b,bi)=>{
+    sayChunks((b.k==='q'?'Prüfungsfrage: ':'')+b.t).forEach(t=>items.push({bi,t}));
+    if(b.k==='q'&&S.tts.sol){ const a=bookAnswer(b); if(a) sayChunks('Lösung des Autors: '+a.b).forEach(t=>items.push({bi,t,sol:1})); }
+  });
+  return items;
+}
+function ttsVoices(){
+  if(!synth) return [];
+  const sc=v=>(/AT/i.test(v.lang)?4:0)+(/premium|enhanced|erweitert|natural|neural/i.test(v.name)?2:0)+(v.localService?1:0);
+  return synth.getVoices().filter(v=>/^de/i.test(v.lang)).sort((a,b)=>sc(b)-sc(a)||a.name.localeCompare(b.name));
+}
+function ttsVoice(){ const vs=ttsVoices(); return vs.find(v=>v.voiceURI===S.tts.voice)||vs[0]||null; }
+function ttsStart(i,bi){
+  if(!synth||!window.SpeechSynthesisUtterance) return toast('Dieser Browser kann nicht vorlesen.');
+  if(TTS.c!==i){ TTS.c=i; TTS.items=ttsBuild(i); }
+  const j=TTS.items.findIndex(x=>x.bi>=bi); ttsGo(j<0?0:j);
+}
+function ttsGo(pos){
+  TTS.pos=pos; TTS.on=true; TTS.tok++; ttsLock();
+  // Pause = abbrechen und später das aktuelle Stück neu sprechen (pause/resume ist auf iOS unzuverlässig).
+  if(synth.speaking||synth.pending){ synth.cancel(); setTimeout(ttsSpeak,80); } else ttsSpeak();
+}
+function ttsSpeak(){
+  if(!TTS.on) return;
+  const it=TTS.items[TTS.pos]; if(!it) return ttsDone();
+  const tok=++TTS.tok, u=new SpeechSynthesisUtterance(it.t), v=ttsVoice();
+  if(v){u.voice=v;u.lang=v.lang;} else u.lang='de-AT';
+  u.rate=S.tts.rate;
+  u.onend=()=>{ if(tok!==TTS.tok||!TTS.on) return; TTS.pos++; ttsSpeak(); };
+  u.onerror=e=>{ if(tok!==TTS.tok||e.error==='interrupted'||e.error==='canceled') return;
+    if(e.error==='not-allowed'){ ttsPause(); return toast('Zum Starten bitte auf ▶ tippen'); }
+    TTS.pos++; ttsSpeak(); };
+  synth.speak(u);
+  S.ttsPos={key:BUCH[TTS.c].key,bi:it.bi}; save();
+  ttsMark(); ttsBar();
+}
+function ttsPause(){ TTS.on=false; TTS.tok++; if(synth) synth.cancel(); ttsUnlock(); ttsBar(); }
+function ttsClose(){ ttsPause(); TTS.c=null; TTS.items=[]; ttsMark(); ttsBar(); }
+function ttsDone(){
+  const nx=BUCH[TTS.c+1];
+  if(!S.tts.next||!nx){ ttsPause(); TTS.pos=Math.max(0,TTS.items.length-1); ttsBar(); return toast('Kapitel fertig vorgelesen'); }
+  const viewing=document.querySelector(`.bk[data-chap="${TTS.c}"]`);
+  TTS.c=nx.i; TTS.items=ttsBuild(nx.i); TTS.pos=0;
+  if(viewing) render({chap:nx.i});
+  ttsSpeak();
+}
+function ttsSkip(d){
+  const cur=TTS.items[TTS.pos]?TTS.items[TTS.pos].bi:-1; let j;
+  if(d>0){ j=TTS.items.findIndex(x=>x.bi>cur); if(j<0){ if(TTS.on) return ttsDone(); return; } }
+  else { const p=TTS.items.slice(0,TTS.pos).reverse().find(x=>x.bi<cur); j=p?TTS.items.findIndex(x=>x.bi===p.bi):0; }
+  if(TTS.on) ttsGo(j); else { TTS.pos=j; ttsMark(); ttsBar(); }
+}
+async function ttsLock(){ try{ if(!TTS.lock&&'wakeLock' in navigator){ TTS.lock=await navigator.wakeLock.request('screen'); TTS.lock.addEventListener('release',()=>TTS.lock=null); } }catch(e){} }
+function ttsUnlock(){ try{ if(TTS.lock) TTS.lock.release(); }catch(e){} TTS.lock=null; }
+document.addEventListener('visibilitychange',()=>{ // iOS hält die Sprachausgabe im Hintergrund an
+  if(document.visibilityState==='visible'&&TTS.on){ ttsLock(); if(!synth.speaking) ttsGo(TTS.pos); }
+});
+function ttsMark(){
+  document.querySelectorAll('.bk .speaking').forEach(x=>x.classList.remove('speaking'));
+  document.querySelectorAll('.bk.listening').forEach(x=>x.classList.remove('listening'));
+  const art=TTS.c!==null&&document.querySelector(`.bk[data-chap="${TTS.c}"]`), it=TTS.items[TTS.pos];
+  if(!art||!it) return;
+  art.classList.add('listening');
+  const el=art.querySelector(`[data-bi="${it.bi}"]`); if(!el) return;
+  el.classList.add('speaking');
+  if(it.sol){ const d=el.querySelector('details'); if(d) d.open=true; }
+  const r=el.getBoundingClientRect();
+  if(r.top<70||r.top>innerHeight-200) el.scrollIntoView({block:'center',behavior:matchMedia('(prefers-reduced-motion:reduce)').matches?'auto':'smooth'});
+}
+const ICO={play:'M7 4l13 8-13 8z',pause:'M7 4h4v16H7zM14 4h4v16h-4z',prev:'M6 5v14M19 5l-10 7 10 7z',next:'M18 5v14M5 5l10 7-10 7z',gear:'M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1',x:'M6 6l12 12M18 6L6 18'};
+const svg=(k,fill)=>`<svg viewBox="0 0 24 24" fill="${fill?'currentColor':'none'}" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="${ICO[k]}"/></svg>`;
+function ttsBar(){
+  let bar=TTS.bar;
+  if(!bar){
+    bar=TTS.bar=document.createElement('div'); bar.className='tts'; bar.setAttribute('role','region'); bar.setAttribute('aria-label','Vorlesen');
+    bar.innerHTML=`<div class="tts-r"><button class="tts-t" data-a="go"><b></b><span></span></button>
+      <div class="tts-c"><button data-a="x" aria-label="Vorlesen beenden">${svg('x')}</button></div></div>
+      <div class="tts-c tts-r tts-ctl"><button class="rate" data-a="rate" aria-label="Tempo"></button><button data-a="prev" aria-label="Voriger Absatz">${svg('prev',1)}</button><button class="pp" data-a="play"></button><button data-a="next" aria-label="Nächster Absatz">${svg('next',1)}</button><button data-a="set" aria-label="Einstellungen">${svg('gear')}</button></div>
+      <div class="bar"><i></i></div>
+      <div class="tts-s" hidden><label style="display:block"><span class="eyebrow">Stimme</span><select data-a="voice"></select></label>
+      <label><input type="checkbox" data-a="sol"> Lösungen des Autors nach den Prüfungsfragen mitlesen</label>
+      <label><input type="checkbox" data-a="nx"> Danach automatisch nächstes Kapitel</label>
+      <p class="muted" style="margin:0;font-size:.85rem">Tippe während des Vorlesens auf einen Absatz, um dort weiterzuhören. Bessere Stimme am iPhone: Einstellungen › Bedienungshilfen › Gesprochene Inhalte › Stimmen › Deutsch – z. B. „Anna (Premium)“ laden, dann hier auswählen. Bildschirm bleibt an, solange vorgelesen wird; bei gesperrtem iPhone pausiert die Wiedergabe.</p></div>`;
+    document.body.appendChild(bar);
+    bar.onclick=e=>{ const a=e.target.closest('[data-a]'); if(!a) return; const k=a.dataset.a;
+      if(k==='play') TTS.on?ttsPause():ttsGo(TTS.pos);
+      else if(k==='prev') ttsSkip(-1);
+      else if(k==='next') ttsSkip(1);
+      else if(k==='rate'){ S.tts.rate=RATES[(RATES.indexOf(S.tts.rate)+1)%RATES.length]||1; save(); if(TTS.on) ttsGo(TTS.pos); else ttsBar(); }
+      else if(k==='set'){ const s=bar.querySelector('.tts-s'); s.hidden=!s.hidden; ttsVoiceList(); }
+      else if(k==='x') ttsClose();
+      else if(k==='go'&&TTS.c!==null) nav('buch',{chap:TTS.c});
+    };
+    bar.onchange=e=>{ const k=e.target.dataset.a;
+      if(k==='voice'){ S.tts.voice=e.target.value; save(); if(TTS.on) ttsGo(TTS.pos); }
+      if(k==='nx'){ S.tts.next=e.target.checked; save(); }
+      if(k==='sol'){ S.tts.sol=e.target.checked; save(); const bi=TTS.items[TTS.pos]?TTS.items[TTS.pos].bi:-1; TTS.items=ttsBuild(TTS.c);
+        const j=TTS.items.findIndex(x=>x.bi>=bi); TTS.pos=j<0?0:j; if(TTS.on) ttsGo(TTS.pos); }
+    };
+    addEventListener('resize',ttsPlace);
+    if(synth) synth.addEventListener('voiceschanged',ttsVoiceList);
+  }
+  const show=TTS.c!==null; bar.hidden=!show; document.body.classList.toggle('tts-on',show);
+  if(!show) return;
+  const c=BUCH[TTS.c], it=TTS.items[TTS.pos]||{bi:-1}, b=c.blocks[it.bi];
+  bar.querySelector('.tts-t b').textContent=(c.nr?c.nr+'. ':'')+c.title;
+  bar.querySelector('.tts-t span').textContent=`S. ${b?b.pg:c.pg} · ${TTS.on?'liest vor':'pausiert'}${it.sol?' · Lösung':''}`;
+  const pp=bar.querySelector('.pp'); pp.innerHTML=svg(TTS.on?'pause':'play',1); pp.setAttribute('aria-label',TTS.on?'Pause':'Vorlesen');
+  bar.querySelector('.rate').textContent=String(S.tts.rate).replace('.',',')+'×';
+  bar.querySelector('.bar i').style.width=(TTS.items.length?Math.round(100*TTS.pos/TTS.items.length):0)+'%';
+  bar.querySelector('[data-a="sol"]').checked=S.tts.sol; bar.querySelector('[data-a="nx"]').checked=S.tts.next;
+  ttsPlace();
+}
+function ttsPlace(){ // über der unteren Tab-Leiste (Handy) andocken
+  if(!TTS.bar) return; const bt=document.getElementById('btabs');
+  TTS.bar.style.bottom=getComputedStyle(bt).display!=='none'?(bt.offsetHeight+8)+'px':'';
+}
+function ttsVoiceList(){
+  const sel=TTS.bar&&TTS.bar.querySelector('[data-a="voice"]'); if(!sel) return;
+  const vs=ttsVoices(), cur=ttsVoice();
+  sel.innerHTML=vs.length?vs.map(v=>`<option value="${esc(v.voiceURI)}"${cur&&v.voiceURI===cur.voiceURI?' selected':''}>${esc(v.name)} (${esc(v.lang)})</option>`).join(''):'<option>Keine deutsche Stimme gefunden – Systemstimme</option>';
 }
 
 // ---------- Karten (Leitner, 5 Fächer) ----------
